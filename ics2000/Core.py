@@ -27,7 +27,7 @@ class CoreException(Exception):
 class Hub:
     aes = None
     mac = None
-    base_url = "https://trustsmartcloud2.com/ics2000_api/"
+    base_url = "https://trustsmartcloud2.com/ics2000_api"
 
     def __init__(self, mac, email, password):
         """Initialize an ICS2000 hub."""
@@ -104,11 +104,20 @@ class Hub:
         if 200 != response.status_code:
             raise CoreException(f'Could not send command {command}: {response.text}')
 
-    def send_command_udp(self, command):
+    def send_command_udp(self, command, send_timeout: int = 10000)-> None:
         logging.info(f'Using UDP to send command to {self.ip_address}')
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.sendto(command, (self.ip_address, 2012))
-        sock.close()
+        client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        client.settimeout(send_timeout/1000)
+        try:
+            client.sendto(command, (self.ip_address, 2012))
+            data, (ipaddress, port) = client.recvfrom(1024)
+            logging.info(f'Message received from {ipaddress} : {port}')
+        except socket.timeout:
+            logging.ERROR("Message timed out")
+        finally:
+            client.close()
+            time.sleep(0.5)
+        
 
     def turn_off(self, entity):
         cmd = self.simple_command(entity, 0, 0)
